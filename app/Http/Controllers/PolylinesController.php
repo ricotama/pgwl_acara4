@@ -44,6 +44,7 @@ class PolylinesController extends Controller
                 'name' => 'required|unique:polylines,name',
                 'description' => 'required',
                 'geom_polylines' => 'required',
+                'image'=> 'nullable|mimes:jpeg,png,jpg,gif,svg|max:10000',
             ],
             [
                 'name.required' => 'Name is required',
@@ -53,10 +54,25 @@ class PolylinesController extends Controller
             ]
         );
 
+        //Create Images directory if not exist
+        if (!is_dir('storage/images')) {
+            mkdir('./storage/images', 0777);
+        }
+
+        //Get image file
+        if ($request->hasFile('image')) {
+            $image = $request->file('image');
+            $name_image = time() . "_polyline." . strtolower($image->getClientOriginalExtension());
+            $image->move('storage/images', $name_image);
+        } else {
+            $name_image = null;
+        }
+
         $data = [
             'geom' => $request->geom_polylines,
             'name' => $request->name,
             'description' => $request->description,
+            'image' =>$name_image,
         ];
 
         //Create Data
@@ -97,6 +113,19 @@ class PolylinesController extends Controller
      */
     public function destroy(string $id)
     {
-        //
+        $imagefile = $this->polylines->find($id)->image;
+
+        if (!$this->polylines->destroy($id)) {
+            return redirect()->route('map')->with('error', 'Polylines failed to delete');
+        }
+
+        //Delete image file
+        if ($imagefile != null) {
+            if (file_exists('./storage/images/' . $imagefile)) {
+                unlink('./storage/images/' . $imagefile);
+            }
+        }
+
+        return redirect()->route('map')->with('success', 'Polylines has been deleted');
     }
 }

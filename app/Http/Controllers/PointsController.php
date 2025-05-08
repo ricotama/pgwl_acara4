@@ -43,6 +43,7 @@ class PointsController extends Controller
                 'name' => 'required|unique:points,name',
                 'description' => 'required',
                 'geom_points' => 'required',
+                'image'=> 'nullable|mimes:jpeg,png,jpg,gif,svg|max:10000',
             ],
             [
                 'name.required' => 'Name is required',
@@ -52,10 +53,25 @@ class PointsController extends Controller
             ]
         );
 
+        //Create Images directory if not exist
+        if (!is_dir('storage/images')) {
+            mkdir('./storage/images', 0777);
+        }
+
+        //Get image file
+        if ($request->hasFile('image')) {
+            $image = $request->file('image');
+            $name_image = time() . "_point." . strtolower($image->getClientOriginalExtension());
+            $image->move('storage/images', $name_image);
+        } else {
+            $name_image = null;
+        }
+
         $data = [
             'geom' => $request->geom_points,
             'name' => $request->name,
             'description' => $request->description,
+            'image' =>$name_image,
         ];
 
         //Create Data
@@ -96,6 +112,19 @@ class PointsController extends Controller
      */
     public function destroy(string $id)
     {
-        //
+        $imagefile = $this->points->find($id)->image;
+
+        if (!$this->points->destroy($id)) {
+            return redirect()->route('map')->with('error', 'Point failed to delete');
+        }
+
+        //Delete image file
+        if ($imagefile != null) {
+            if (file_exists('./storage/images/' . $imagefile)) {
+                unlink('./storage/images/' . $imagefile);
+            }
+        }
+        
+        return redirect()->route('map')->with('success', 'Point has been deleted');
     }
 }
